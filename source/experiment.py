@@ -21,7 +21,8 @@ experiment_log = pd.read_csv(data_dir + 'experiment_log.csv', index_col='name')
 
 def get_experiment(name):
     """Return a single experiment class if available in list of experiments"""
-    
+    experiment_log = pd.read_csv(data_dir + 'experiment_log.csv', index_col='name')
+
     if name in experiment_log.index.values:
         return Experiment(name, experiment_log.loc[name])
     else:
@@ -29,6 +30,8 @@ def get_experiment(name):
         
 def get_experiment_names():
     """"Print all available experiments"""
+    experiment_log = pd.read_csv(data_dir + 'experiment_log.csv', index_col='name')
+
     for name in experiment_log.index.values:
         print("{:s}".format(name))
 
