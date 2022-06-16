@@ -9,6 +9,7 @@ Created on Wed May  4 10:22:24 2022
 
 import pandas as pd
 import glob
+import os
 
 from skimage import io
 
@@ -32,9 +33,11 @@ def get_experiment_names():
     """"Print all available experiments"""
     experiment_log = pd.read_csv(data_dir + 'experiment_log.csv', index_col='name')
 
+    names = []
     for name in experiment_log.index.values:
+        names.append(name)
         print("{:s}".format(name))
-
+    return names
 
 
 class Experiment():
@@ -48,6 +51,10 @@ class Experiment():
         self.image_files = self.get_image_files()
         
         self.set_scale(params['scale (mm/pixel)'])
+        self.window_string = params['dry windows']
+        self.last_image = int(params['stop image'])
+        self.start_image = int(params['start image'])
+        self.skip_traces = self.get_skip_traces(params['trace, omit'])
         
 
 
@@ -83,13 +90,69 @@ class Experiment():
         return image.shape
         
 
-    def read_pressure(self):
+    def load_pressure(self):
         df = pd.read_csv(self.pressure_file, names=('Index', 'Pressure (mmHg)'))
         self.pressure_data = df["Pressure (mmHg)"]
         
+    def get_windows(self):
+        window_strings = self.window_string.split(",")
+        windows = []
+        for window_range in window_strings:
+            start_ind = int(window_range.split(":")[0][1::])
+            stop_ind = int(window_range.split(":")[1][0:-1])
+            windows.append([start_ind,stop_ind])
+        return windows
     
+    def save_diameters(self, diameters, OVERWRITE=False):
+        save_name = self._path + "ProcessedDiameters.csv"
+        n_stations = len(diameters[0,:])
+        columns = ['station '+str(a+1) for a in range(n_stations)]
+        df = pd.DataFrame(data=diameters, columns=columns)
+        
+        if not os.path.exists(save_name):
+            
+            df.to_csv(save_name)
+        elif OVERWRITE:
+            print("Saving Diameters File")
+            df.to_csv(save_name)
+        else:
+            print("Not Saving, as file already exists. CHange OVERWRITE to true if you'd like to overwrite")
+            
+    
+    def load_diameter(self):
+        filename = self._path + "ProcessedDiameters.csv"
+        if not os.path.exists(filename):
+            raise Exception("Diameters file does not exist")
+        else:
+            df = pd.read_csv(filename)
+            return df
+        
+    def save_amplitudes(self, df, OVERWRITE=False):
+        save_name = self._path + "Amplitudes.csv"
+        
+        if not os.path.exists(save_name):
+            print("Saving Amplitude  File")
+            df.to_csv(save_name)
+        elif OVERWRITE:
+            print("Saving Amplitude  File")
+            df.to_csv(save_name)
+        else:
+            print("Not Saving, as file already exists. CHange OVERWRITE to true if you'd like to overwrite")
+            
+    def load_amplitudes(self):
+        save_name = self._path + "Amplitudes.csv"
+        return pd.read_csv(save_name)
+            
+    
+    def get_skip_traces(self, trace_str):
+        if trace_str == 'None':
+            return False
 
-    
+        else:
+            traces = trace_str.split("{")[-1].split("}")[0].split(",")
+            return [int(a) for a in traces]
+        
+            
     
 # exp_list_and_paths = {
     

@@ -19,7 +19,7 @@ myplatform = platform.sys.platform;
 
 
 if myplatform == 'win32':
-    base_dir = 'C:/Users/MichaelBarbour/OneDrive - UW/RS Flow Modeling/'
+    base_dir = 'C:/Users/MichaelBarbour/OneDrive - UW/GraftTesting'
     
 elif myplatform == 'darwin':
     base_dir = '/Users/mbarbour/OneDrive - UW/GraftTesting'
