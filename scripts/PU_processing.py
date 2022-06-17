@@ -26,7 +26,7 @@ for name in exp_names:
         pu_exp_names.append(name)
 
 #%% remove a few of the experiments
-bad_runs = ['PU_03_50_150_RT_v3', 'PU_03_50_150_RT_v4']
+bad_runs = ['PU_03_50_150_RT_v3', 'PU_03_50_150_RT_v4', 'PU_03_50_90_RT_v1']
 for run in bad_runs:
     pu_exp_names.remove(run)
 
@@ -191,7 +191,7 @@ def compute_compliance(exp, search_window=100, show_plot=True):
 for exp in pu_experiments:
     print(exp.get_name())
     df_amp = compute_compliance(exp, search_window=75)
-    exp.save_amplitudes(df_amp)
+    exp.save_compliance(df_amp, OVERWRITE=False)
 
 # ugh uneven lengths of arrays appending to the is screwing me up... until next time
     
@@ -260,6 +260,158 @@ if show_plot:
     fig.update_xaxes(range=[0,time[-1]])
     fig.show()
 
+#%% Let's plot all of the amplitudes in time
+
+
+for exp in pu_experiments:
+    fig = go.Figure()
+    amp = exp.load_compliance()
+    
+    if exp.skip_traces != "None":
+        bad_trace = exp.skip_traces
+        bad_trace_names = ["Diameter, Station " + str(a) for a in bad_trace]
+        amp.drop(columns=bad_trace_names, inplace=True)
+    index = ["Diameter" in string for string in amp.columns.values]
+    trace_names = amp.columns.values[index]
+    for name in trace_names:
+        fig.add_trace(go.Box(y=amp[name] / amp["Pressure (mmHg"] * 1000, boxpoints='all'))
+        fig.update_layout(title=exp.get_name())
+    
+    fig.show()
+    
+    
+#%% get all graft and experiment names - no version
+pu_names_combined = [string[0:-3] for string in pu_exp_names]
+pu_names_combined = np.unique(pu_names_combined)
+
+#%% Rewrite amplitdues - 6 had the wrong scaling (off by a factor of ten)
+
+
+names = ['PU_02_80_120_RT_v1', 'PU_02_110_150_RT_v1', 'PU_02_50_90_RT_v1','PU_02_80_120_RT_v2', 'PU_02_110_150_RT_v2', 'PU_02_50_90_RT_v2']
+
+for name in names:
+    exp = get_experiment(name)
+    amp = exp.load_amplitudes()
+    index = ["Diameter" in string for string in amp.columns.values]
+    trace_names = amp.columns.values[index]
+    for column in trace_names:
+        amp[column] = amp[column] / 10.
+
+    exp.save_amplitudes(amp, OVERWRITE=True)
+
+#%% create one box plot for each exp type
+
+plot_names = ['PU_02_50_90_RT', 'PU_02_80_120_RT', 'PU_02_110_150_RT', 'PU_02_50_150_RT', 
+              'PU_03_50_90_RT', 'PU_03_80_120_RT', 'PU_03_110_150_RT', 'PU_03_50_150_RT',
+              'PU_04_50_90_RT', 'PU_04_80_120_RT', 'PU_04_110_150_RT', 'PU_04_50_150_RT']
+
+
+n_plots = len(plot_names)
+
+colors = ['blue', 'red', 'green', 'black']
+n_colors = len(colors)
+
+fig = go.Figure()
+for count, pu_name in enumerate(plot_names):
+    
+    plot_count = count - int(count / n_colors)*n_colors
+    
+    exp_names = [pu_name in string for string in pu_exp_names]
+    exp_names = np.array(pu_exp_names)[exp_names]
+    
+    compliance = np.array([])
+    for exp_name in exp_names:
+        
+        
+        exp = get_experiment(exp_name)
+        amp = exp.load_compliance()
+        
+        if exp.skip_traces != "None":
+            print("Dropping bad traces")
+            bad_trace = exp.skip_traces
+            bad_trace_names = ["Diameter, Station " + str(a) for a in bad_trace]
+            amp.drop(columns=bad_trace_names, inplace=True)
+        
+        
+        index = ["Diameter" in string for string in amp.columns.values]
+        trace_names = amp.columns.values[index]
+        for column in trace_names:
+            compliance = np.append(compliance, (amp[column].values / amp["Pressure (mmHg"].values) * 1000)
+            
+        
+    fig.add_trace(go.Box(y = compliance, boxpoints='all', name = pu_name, marker_color=colors[plot_count]))
+fig.update_yaxes(title='Compliance (% / mmHg)')
+fig.show()
+        
+
+#%% Process the gore results
+gore_exp_names = ['GORE_6mmID_50_150_v2','GORE2_6mmID_50_150_v1','GORE2_6mmID_50_150_v2']
+
+gore_exp_names = ['GORE2_6mmID_50_150_v2']
+
+for name in gore_exp_names:
+    exp = get_experiment(name)
+    diameters = analyze_image_stack_windows(exp)
+    exp.save_diameters(diameters)
+    
+#%%    
+gore_exp_names = ['GORE_6mmID_50_150_v1','GORE_6mmID_50_150_v2','GORE2_6mmID_50_150_v1','GORE2_6mmID_50_150_v2']
+
+gore_exp_names = ['GORE_6mmID_50_150_v2','GORE2_6mmID_50_150_v1']
+stations = [[1,2,5], [4,5]]
+
+for count,name in enumerate(gore_exp_names):
+    exp = get_experiment(name)
+    df_diameter = exp.load_diameter()
+    exp.load_pressure()
+    pressure = exp.pressure_data
+    
+    n_stations = ['station' in a for a in df_diameter.columns.values].count(True)
+    
+    
+    dt = 1./ exp.frequency
+    time = np.arange(len(df_diameter))*dt
+    fig = make_subplots(rows=2, cols=1)
+    for n in range(n_stations):
+        fig.add_trace(go.Scatter(x=time,y=df_diameter['station '+str(n+1)], name='station ' + str(n+1)), row=1, col=1)
+        # fig.add_trace(go.Scatter(x=time[peak_vals_all[n]],y=df_diameter['station '+str(n+1)][peak_vals_all[n]],mode='markers', name='station ' + str(n+1), marker_color='red'), row=1, col=1)
+        # fig.add_trace(go.Scatter(x=time[min_vals_all[n]],y=df_diameter['station '+str(n+1)][min_vals_all[n]],mode='markers', name='station ' + str(n+1), marker_color='blue'), row=1, col=1)
+        # fig.update_yaxes(title='Diameter (pixels)', row=1, col=1)
+
+
+    fig.add_trace(go.Scatter(x=time, y=pressure), row=2, col=1)
+    # fig.add_trace(go.Scatter(x=time[peak_vals_pressure],y=pressure[peak_vals_pressure], mode='markers'),row=2,col=1)
+    # fig.add_trace(go.Scatter(x=time[min_vals_pressure],y=pressure[min_vals_pressure], mode='markers', marker_color='green'),row=2,col=1)
+    fig.update_yaxes(title='Pressure (mmHg)', row=2, col=1)
+    fig.update_xaxes(title='time (s)')
+
+    fig.update_xaxes(range=[0,time[-1]])
+    fig.show()
+    
+    
+    
+    df_amp = compute_compliance_stations(exp, stations[count], search_window=90)
+    exp.save_compliance(df_amp, OVERWRITE=True)
+    
+    
+#%% plot the GORE graft amplitudes
+gore_exp_names = ['GORE_6mmID_50_150_v2','GORE2_6mmID_50_150_v1']
+
+compliance_gore = np.array([])
+for exp_name in gore_exp_names:
+    exp = get_experiment(exp_name)
+    amp = exp.load_compliance()
+    
+    index = ["Diameter" in string for string in amp.columns.values]
+    trace_names = amp.columns.values[index]
+    for column in trace_names:
+        compliance_gore = np.append(compliance_gore, amp[column].values / amp["Pressure (mmHg"].values * 1000)
+
+fig = go.Figure()
+fig.add_trace(go.Box(y=compliance_gore))
+fig.show()
+
+
 #%% function for computing a single value of compliance
 
 exp = get_experiment("PU_03_80_120_RT_v2")
@@ -271,17 +423,141 @@ for exp in pu_experiments:
     
     
     
+    
 def average_compliance(exp):
     
     
     
+ #   
     
+#%% Plot just the small ranges, compliance
+plot_names = ['PU_02_50_90_RT', 'PU_02_80_120_RT', 'PU_02_110_150_RT', 
+              'PU_03_50_90_RT', 'PU_03_80_120_RT', 'PU_03_110_150_RT',
+              'PU_04_50_90_RT', 'PU_04_80_120_RT', 'PU_04_110_150_RT',]
+
+
+n_plots = len(plot_names)
+
+colors = ['blue', 'red', 'green']
+n_colors = len(colors)
+
+fig = go.Figure()
+for count, pu_name in enumerate(plot_names):
     
+    plot_count = count - int(count / n_colors)*n_colors
     
+    exp_names = [pu_name in string for string in pu_exp_names]
+    exp_names = np.array(pu_exp_names)[exp_names]
     
+    compliance = np.array([])
+    for exp_name in exp_names:
+        
+        
+        exp = get_experiment(exp_name)
+        amp = exp.load_compliance()
+        
+        if exp.skip_traces != "None":
+            print("Dropping bad traces")
+            bad_trace = exp.skip_traces
+            bad_trace_names = ["Diameter, Station " + str(a) for a in bad_trace]
+            amp.drop(columns=bad_trace_names, inplace=True)
+        
+        
+        index = ["Diameter" in string for string in amp.columns.values]
+        trace_names = amp.columns.values[index]
+        for column in trace_names:
+            compliance = np.append(compliance, (amp[column].values / amp["Pressure (mmHg"].values) * 1000)
+            
+        
+    fig.add_trace(go.Box(y = compliance, name = pu_name, marker_color=colors[plot_count]))
+fig.update_yaxes(title='Compliance (% / mmHg)')
+fig.show()
+        
     
+#%% Plot just the small ranges, compliance
+plot_names = ['PU_02_50_90_RT', 'PU_02_80_120_RT', 'PU_02_110_150_RT', 
+              'PU_03_50_90_RT', 'PU_03_80_120_RT', 'PU_03_110_150_RT',
+              'PU_04_50_90_RT', 'PU_04_80_120_RT', 'PU_04_110_150_RT',]
+
+
+n_plots = len(plot_names)
+
+colors = ['blue', 'red', 'green']
+n_colors = len(colors)
+
+fig = go.Figure()
+for count, pu_name in enumerate(plot_names):
     
+    plot_count = count - int(count / n_colors)*n_colors
     
+    exp_names = [pu_name in string for string in pu_exp_names]
+    exp_names = np.array(pu_exp_names)[exp_names]
+    
+    compliance = np.array([])
+    for exp_name in exp_names:
+        
+        
+        exp = get_experiment(exp_name)
+        amp = exp.load_amplitudes()
+        
+        if exp.skip_traces != "None":
+            print("Dropping bad traces", exp_name)
+            bad_trace = exp.skip_traces
+            bad_trace_names = ["Diameter, Station " + str(a) for a in bad_trace]
+            amp.drop(columns=bad_trace_names, inplace=True)
+        
+        
+        index = ["Diameter" in string for string in amp.columns.values]
+        trace_names = amp.columns.values[index]
+        for column in trace_names:
+            compliance = np.append(compliance, (amp[column].values / amp["Pressure (mmHg"].values) * 1000)
+            
+        
+    fig.add_trace(go.Box(y = compliance, name = pu_name, marker_color=colors[plot_count]))
+fig.update_yaxes(title='Compliance (% / mmHg)')
+fig.show() 
+ 
+ 
+#%% 
+plot_names = ['PU_02_50_150_RT', 'PU_03_50_150_RT', 'PU_04_50_150_RT']    
+    
+n_plots = len(plot_names)
+
+colors = ['blue', 'red', 'green', 'black']
+n_colors = len(colors)
+
+fig = go.Figure()
+for count, pu_name in enumerate(plot_names):
+    
+    plot_count = count - int(count / n_colors)*n_colors
+    
+    exp_names = [pu_name in string for string in pu_exp_names]
+    exp_names = np.array(pu_exp_names)[exp_names]
+    
+    compliance = np.array([])
+    for exp_name in exp_names:
+        
+        
+        exp = get_experiment(exp_name)
+        amp = exp.load_compliance()
+        
+        if exp.skip_traces != "None":
+            print("Dropping bad traces", exp_name)
+            bad_trace = exp.skip_traces
+            bad_trace_names = ["Diameter, Station " + str(a) for a in bad_trace]
+            amp.drop(columns=bad_trace_names, inplace=True)
+        
+        
+        index = ["Diameter" in string for string in amp.columns.values]
+        trace_names = amp.columns.values[index]
+        for column in trace_names:
+            compliance = np.append(compliance, (amp[column].values / amp["Pressure (mmHg"].values) * 1000)
+            
+        
+    fig.add_trace(go.Box(y = compliance, name = pu_name, marker_color=colors[count]))
+fig.add_trace(go.Box(y = compliance_gore, name = "GORE", marker_color='black'))
+fig.update_yaxes(title='Compliance (% / mmHg)')
+fig.show() 
     
     
     

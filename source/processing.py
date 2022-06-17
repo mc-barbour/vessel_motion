@@ -123,6 +123,24 @@ def waveform_amplitude(data, minimums, maximums):
 
     return amplitudes
 
+def waveform_compliance(data, minimums, maximums):
+    """ Change in diameter is presented as a percentage"""
+    
+    amplitudes = []
+    n_measurements = len(minimums)-1
+    for count in range(n_measurements):
+        min_val = data[minimums[count]]
+
+        if minimums[0] < maximums[0]:
+            max_val = data[maximums[count]]
+        else:
+            max_val = data[maximums[count+1]]
+
+            
+        amplitudes.append((max_val - min_val) / min_val)
+
+    return amplitudes
+
 def waveform_amplitude_2(data, minimums, maximums):
     amplitudes = []
     
@@ -166,16 +184,14 @@ def compute_compliance(exp, search_window=100, show_plot=True):
         peak_vals = scipy.signal.find_peaks(df_diameter['station '+str(count+1)], distance=search_window)[0][1:-1]
         min_vals = scipy.signal.find_peaks(df_diameter['station '+str(count+1)]*-1, distance=search_window)[0][1:-1]
         
-        # peak_vals = peak_vals[1:-1]
-        # min_vals = min_vals[1:-1]
         
         print(min_vals,peak_vals)
         
-        diameter_amplitude = waveform_amplitude(df_diameter['station '+str(count+1)],min_vals, peak_vals)
-        diameter_amplitudes_scaled = [a * exp.scale for a in diameter_amplitude]
+        diameter_amplitude = waveform_compliance(df_diameter['station '+str(count+1)],min_vals, peak_vals)
+        # diameter_amplitudes_scaled = [a * exp.scale for a in diameter_amplitude]
         
         # df_amplitudes["Diameter, Station "+str(count)] = diameter_amplitudes_scaled       
-        df_temp = pd.DataFrame(data = diameter_amplitudes_scaled, columns = ["Diameter, Station "+str(count+1)])    
+        df_temp = pd.DataFrame(data = diameter_amplitude, columns = ["Diameter, Station "+str(count+1)])    
         df_amplitudes = pd.concat([df_amplitudes,df_temp],axis=1)
 
         peak_vals_all.append(peak_vals)
@@ -206,7 +222,93 @@ def compute_compliance(exp, search_window=100, show_plot=True):
     
 
 
+def compute_compliance_stations(exp, stations, search_window=100,show_plot=True):
+    
+    exp.load_pressure()
+    pressure = exp.pressure_data[exp.start_image:exp.last_image].values
+    df_diameter = exp.load_diameter()
+    
+    peak_vals_pressure = scipy.signal.find_peaks(pressure, distance=search_window)[0][1:-1]
+    min_vals_pressure = scipy.signal.find_peaks(pressure*-1, distance=search_window)[0][1:-1]
+    
+    # peak_vals_pressure = peak_vals_pressure[1:-1] # skip first and last - rising and falling
+    # min_vals_pressure = min_vals_pressure[1:-1] # skip first and last - rising and falling
 
+    print(peak_vals_pressure, min_vals_pressure)
+    
+    pressure_amplitudes = waveform_amplitude(pressure, min_vals_pressure, peak_vals_pressure)
+    
+    df_amplitudes = pd.DataFrame(data=pressure_amplitudes, columns=['Pressure (mmHg'])
+    
+    n_stations = ['station' in a for a in df_diameter.columns.values].count(True)
+    peak_vals_all = []
+    min_vals_all = []
+    
+    
+    dt = 1./ exp.frequency
+    time = np.arange(len(df_diameter))*dt
+    fig = make_subplots(rows=2, cols=1)
+    
+    
+    for station in stations:
+        
+        peak_vals = scipy.signal.find_peaks(df_diameter['station '+str(station)], distance=search_window)[0][1:-1]
+        min_vals = scipy.signal.find_peaks(df_diameter['station '+str(station)]*-1, distance=search_window)[0][1:-1]
+        
+        fig.add_trace(go.Scatter(x=time,y=df_diameter['station '+str(station)], name='station ' + str(station)), row=1, col=1)
+        fig.add_trace(go.Scatter(x=time[peak_vals], y=df_diameter['station '+str(station)][peak_vals],mode='markers', name='station ' + str(station), marker_color='red'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=time[min_vals], y=df_diameter['station '+str(station)][min_vals],mode='markers', name='station ' + str(station), marker_color='blue'), row=1, col=1)
+        fig.update_yaxes(title='Diameter (pixels)', row=1, col=1)
+        
+        # peak_vals = peak_vals[1:-1]
+        # min_vals = min_vals[1:-1]
+        
+        print(min_vals,peak_vals)
+        
+        diameter_amplitude = waveform_compliance(df_diameter['station '+str(station)],min_vals, peak_vals)
+        # diameter_amplitudes_scaled = [a * exp.scale for a in diameter_amplitude]
+        
+        # df_amplitudes["Diameter, Station "+str(count)] = diameter_amplitudes_scaled       
+        df_temp = pd.DataFrame(data = diameter_amplitude, columns = ["Diameter, Station "+str(station)])    
+        df_amplitudes = pd.concat([df_amplitudes, df_temp],axis=1)
+
+        peak_vals_all.append(peak_vals)
+        min_vals_all.append(min_vals)
+    
+    fig.add_trace(go.Scatter(x=time, y=pressure), row=2, col=1)
+    fig.add_trace(go.Scatter(x=time[peak_vals_pressure],y=pressure[peak_vals_pressure], mode='markers'),row=2,col=1)
+    fig.add_trace(go.Scatter(x=time[min_vals_pressure],y=pressure[min_vals_pressure], mode='markers', marker_color='green'),row=2,col=1)
+    fig.update_yaxes(title='Pressure (mmHg)', row=2, col=1)
+    fig.update_xaxes(title='time (s)')
+    fig.update_layout(title=exp.get_name())
+
+    fig.update_xaxes(range=[0,time[-1]])
+    fig.show()
+    
+    
+    
+    # if show_plot:
+    #     dt = 1./ exp.frequency
+    #     time = np.arange(len(df_diameter))*dt
+    #     fig = make_subplots(rows=2, cols=1)
+    #     for n in range(n_stations):
+    #         fig.add_trace(go.Scatter(x=time,y=df_diameter['station '+str(n+1)], name='station ' + str(n+1)), row=1, col=1)
+    #         fig.add_trace(go.Scatter(x=time[peak_vals_all[n]],y=df_diameter['station '+str(n+1)][peak_vals_all[n]],mode='markers', name='station ' + str(n+1), marker_color='red'), row=1, col=1)
+    #         fig.add_trace(go.Scatter(x=time[min_vals_all[n]],y=df_diameter['station '+str(n+1)][min_vals_all[n]],mode='markers', name='station ' + str(n+1), marker_color='blue'), row=1, col=1)
+    #         fig.update_yaxes(title='Diameter (pixels)', row=1, col=1)
+
+
+    #     fig.add_trace(go.Scatter(x=time, y=pressure), row=2, col=1)
+    #     fig.add_trace(go.Scatter(x=time[peak_vals_pressure],y=pressure[peak_vals_pressure], mode='markers'),row=2,col=1)
+    #     fig.add_trace(go.Scatter(x=time[min_vals_pressure],y=pressure[min_vals_pressure], mode='markers', marker_color='green'),row=2,col=1)
+    #     fig.update_yaxes(title='Pressure (mmHg)', row=2, col=1)
+    #     fig.update_xaxes(title='time (s)')
+    #     fig.update_layout(title=exp.get_name())
+
+    #     fig.update_xaxes(range=[0,time[-1]])
+    #     fig.show()
+        
+    return df_amplitudes
 
 
 

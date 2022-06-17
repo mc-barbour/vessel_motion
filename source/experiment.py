@@ -142,11 +142,28 @@ class Experiment():
     def load_amplitudes(self):
         save_name = self._path + "Amplitudes.csv"
         return pd.read_csv(save_name)
+               
             
+    def save_compliance(self, df, OVERWRITE=False):
+        save_name = self._path + "_Compliance.csv"
+        
+        if not os.path.exists(save_name):
+            print("Saving Compliance  File")
+            df.to_csv(save_name)
+        elif OVERWRITE:
+            print("Saving Compliance  File")
+            df.to_csv(save_name)
+        else:
+            print("Not Saving, as file already exists. CHange OVERWRITE to true if you'd like to overwrite")
+    
+    def load_compliance(self):
+        save_name = self._path + "_Compliance.csv"
+        return pd.read_csv(save_name)   
+
     
     def get_skip_traces(self, trace_str):
         if trace_str == 'None':
-            return False
+            return "None"
 
         else:
             traces = trace_str.split("{")[-1].split("}")[0].split(",")
