@@ -16,6 +16,14 @@ from source.processing import *
 
 pio.renderers.default = "browser"
 
+"""
+processing sandbox script for the PU results aquired in May 2022.
+
+Each experiment is defined by a class object.
+Processing algorthms are defined as functions in source/processing.py
+
+"""
+
 #%% get experiments names for all PU
 
 exp_names = get_experiment_names()
@@ -46,7 +54,7 @@ for exp in pu_experiments[4::]:
 
 #%% Plot the data
 
-for exp in pu_experiments[0:4]:
+for exp in pu_experiments[0:8]:
     diameters = exp.load_diameter()
     exp.load_pressure()
     
@@ -73,7 +81,7 @@ for exp in pu_experiments[0:4]:
 #%% figure out the peak and min search algorithm
 import scipy.signal
 search_window=80
-exp=pu_experiments[3]
+exp=pu_experiments[4]
 diameters = exp.load_diameter()
 exp.load_pressure()
 
@@ -92,12 +100,13 @@ min_vals = scipy.signal.find_peaks(pressure*-1, distance=search_window)
 
 fig = make_subplots(rows=2, cols=1)
 for n in range(n_stations):
-    fig.add_trace(go.Scatter(x=time,y=diameters['station '+str(n+1)], name='station ' + str(n+1)), row=1, col=1)
+    fig.add_trace(go.Scatter(x=time,y=diameters['station '+str(n+1)]*exp.scale, name='station ' + str(n+1)), row=1, col=1)
     peak_vals = scipy.signal.find_peaks(diameters['station '+str(n+1)], distance=search_window)
     min_vals = scipy.signal.find_peaks(diameters['station '+str(n+1)]*-1, distance=search_window)
-    fig.add_trace(go.Scatter(x=time[peak_vals[0]],y=diameters['station '+str(n+1)][peak_vals[0]],mode='markers', name='station ' + str(n+1), marker_color='red'), row=1, col=1)
-    fig.add_trace(go.Scatter(x=time[min_vals[0]],y=diameters['station '+str(n+1)][min_vals[0]],mode='markers', name='station ' + str(n+1), marker_color='blue'), row=1, col=1)
-    fig.update_yaxes(title='Diameter (pixels)', row=1, col=1)
+    fig.add_trace(go.Scatter(x=time[peak_vals[0]],y=diameters['station '+str(n+1)][peak_vals[0]]*exp.scale, mode='markers', name='station ' + str(n+1), marker_color='red'), row=1, col=1)
+    fig.add_trace(go.Scatter(x=time[min_vals[0]],y=diameters['station '+str(n+1)][min_vals[0]]*exp.scale, mode='markers', name='station ' + str(n+1), marker_color='red'), row=1, col=1)
+    fig.update_yaxes(title='Diameter (mm)', row=1, col=1)
+fig.update_xaxes(range=[0,10], row=1, col=1, showline=True)
 
 
 peak_vals = scipy.signal.find_peaks(pressure, distance=search_window)
@@ -105,15 +114,15 @@ min_vals = scipy.signal.find_peaks(pressure*-1, distance=search_window)
 
 fig.add_trace(go.Scatter(x=time, y=pressure), row=2, col=1)
 fig.add_trace(go.Scatter(x=time[peak_vals[0]],y=pressure[peak_vals[0]], mode='markers'),row=2,col=1)
-fig.add_trace(go.Scatter(x=time[min_vals[0]],y=pressure[min_vals[0]], mode='markers', marker_color='green'),row=2,col=1)
+fig.add_trace(go.Scatter(x=time[min_vals[0]],y=pressure[min_vals[0]], mode='markers', marker_color='red'),row=2,col=1)
 fig.update_yaxes(title='Pressure (mmHg)', row=2, col=1)
-fig.update_xaxes(title='time (s)')
-
-fig.update_xaxes(range=[0,time[-1]])
+fig.update_xaxes(title='Time (s)', range=[0,10], row=2, col=1, showline=True)
+fig.update_layout(template='plotly_white')
+# fig.update_xaxes(range=[0,time[-1]])
 fig.show()
 
 
-#%%
+#%% sandbox for processing algorithms. Final version moved to processing script
 
 def waveform_amplitude(data, minimums, maximums):
     
@@ -336,7 +345,7 @@ for count, pu_name in enumerate(plot_names):
         index = ["Diameter" in string for string in amp.columns.values]
         trace_names = amp.columns.values[index]
         for column in trace_names:
-            compliance = np.append(compliance, (amp[column].values / amp["Pressure (mmHg"].values) * 1000)
+            compliance = np.append(compliance, (amp[column].values / amp["Pressure (mmHg"].values) * 10000)
             
         
     fig.add_trace(go.Box(y = compliance, boxpoints='all', name = pu_name, marker_color=colors[plot_count]))
@@ -445,6 +454,7 @@ fig = go.Figure()
 for count, pu_name in enumerate(plot_names):
     
     plot_count = count - int(count / n_colors)*n_colors
+    plot_count = int(count / n_colors)
     
     exp_names = [pu_name in string for string in pu_exp_names]
     exp_names = np.array(pu_exp_names)[exp_names]
@@ -466,15 +476,20 @@ for count, pu_name in enumerate(plot_names):
         index = ["Diameter" in string for string in amp.columns.values]
         trace_names = amp.columns.values[index]
         for column in trace_names:
-            compliance = np.append(compliance, (amp[column].values / amp["Pressure (mmHg"].values) * 1000)
+            compliance = np.append(compliance, (amp[column].values / amp["Pressure (mmHg"].values) * 10000)
             
         
     fig.add_trace(go.Box(y = compliance, name = pu_name, marker_color=colors[plot_count]))
-fig.update_yaxes(title='Compliance (% / mmHg)')
+
+
+fig.update_yaxes(title='Compliance (% / 100 mmHg)')
+fig.update_xaxes(title = "Dynamic Pressure Range (mmHg)", ticktext=["50 - 90", "80 - 120", "110 - 150", "50 - 90", "80 - 120", "110 - 150","50 - 90", "80 - 120", "110 - 150" ], tickvals=plot_names )
+
+
 fig.show()
         
     
-#%% Plot just the small ranges, compliance
+#%% Plot just the small ranges, amplitudes
 plot_names = ['PU_02_50_90_RT', 'PU_02_80_120_RT', 'PU_02_110_150_RT', 
               'PU_03_50_90_RT', 'PU_03_80_120_RT', 'PU_03_110_150_RT',
               'PU_04_50_90_RT', 'PU_04_80_120_RT', 'PU_04_110_150_RT',]
@@ -510,11 +525,11 @@ for count, pu_name in enumerate(plot_names):
         index = ["Diameter" in string for string in amp.columns.values]
         trace_names = amp.columns.values[index]
         for column in trace_names:
-            compliance = np.append(compliance, (amp[column].values / amp["Pressure (mmHg"].values) * 1000)
+            compliance = np.append(compliance, (amp[column].values / amp["Pressure (mmHg"].values) * 10000)
             
         
     fig.add_trace(go.Box(y = compliance, name = pu_name, marker_color=colors[plot_count]))
-fig.update_yaxes(title='Compliance (% / mmHg)')
+fig.update_yaxes(title='Compliance (% / 100 mmHg)')
 fig.show() 
  
  
@@ -551,22 +566,120 @@ for count, pu_name in enumerate(plot_names):
         index = ["Diameter" in string for string in amp.columns.values]
         trace_names = amp.columns.values[index]
         for column in trace_names:
-            compliance = np.append(compliance, (amp[column].values / amp["Pressure (mmHg"].values) * 1000)
+            compliance = np.append(compliance, (amp[column].values / amp["Pressure (mmHg"].values) * 100 * 100)
             
         
     fig.add_trace(go.Box(y = compliance, name = pu_name, marker_color=colors[count]))
 fig.add_trace(go.Box(y = compliance_gore, name = "GORE", marker_color='black'))
-fig.update_yaxes(title='Compliance (% / mmHg)')
+fig.update_yaxes(title='Compliance (% / 100 mmHg )')
+fig.update_layout(title='Dynamic Range: 50 - 150 mmHg')
+fig.update_xaxes(title = "Tested Graft",ticktext=["PU 02", "PU 03", "PU 04", "GORE, 6mm"], tickvals=['PU_02_50_150_RT', 'PU_03_50_150_RT', 'PU_04_50_150_RT', "GORE"] )
 fig.show() 
     
     
     
     
     
+#%% Plot just the small ranges, compliance - Just for a single graft - PU02
+plot_names = ['PU_02_50_90_RT', 'PU_02_80_120_RT', 'PU_02_110_150_RT']
+
+
+n_plots = len(plot_names)
+
+colors = ['blue', 'red', 'green']
+n_colors = len(colors)
+
+fig = go.Figure()
+for count, pu_name in enumerate(plot_names):
     
+    plot_count = count - int(count / n_colors)*n_colors
+    plot_count = int(count / n_colors)
     
+    exp_names = [pu_name in string for string in pu_exp_names]
+    exp_names = np.array(pu_exp_names)[exp_names]
     
+    compliance = np.array([])
+    for exp_name in exp_names:
+        
+        
+        exp = get_experiment(exp_name)
+        amp = exp.load_compliance()
+        
+        if exp.skip_traces != "None":
+            print("Dropping bad traces")
+            bad_trace = exp.skip_traces
+            bad_trace_names = ["Diameter, Station " + str(a) for a in bad_trace]
+            amp.drop(columns=bad_trace_names, inplace=True)
+        
+        
+        index = ["Diameter" in string for string in amp.columns.values]
+        trace_names = amp.columns.values[index]
+        for column in trace_names:
+            compliance = np.append(compliance, (amp[column].values / amp["Pressure (mmHg"].values) * 10000)
+            
+        
+    fig.add_trace(go.Box(y = compliance, name = pu_name, marker_color=colors[plot_count]))
+
+
+fig.update_yaxes(title='Compliance (% / 100 mmHg)')
+fig.update_xaxes(title = "Dynamic Pressure Range (mmHg)", ticktext=["50 - 90", "80 - 120", "110 - 150", "50 - 90", "80 - 120", "110 - 150","50 - 90", "80 - 120", "110 - 150" ], 
+                 tickvals=plot_names)
+fig.update_layout(template='plotly_white')
+
+fig.show()
+        
+
+
+#%% 50 - 150 dynamic range plot
+
+plot_names = ['PU_02_50_150_RT', 'PU_03_50_150_RT', 'PU_04_50_150_RT']    
     
+n_plots = len(plot_names)
+
+colors = ['blue', 'red', 'green', 'black']
+n_colors = len(colors)
+
+fig = go.Figure()
+compliance = np.array([])
+for count, pu_name in enumerate(plot_names):
+    
+    plot_count = count - int(count / n_colors)*n_colors
+    
+    exp_names = [pu_name in string for string in pu_exp_names]
+    exp_names = np.array(pu_exp_names)[exp_names]
+    
+
+    for exp_name in exp_names:
+        
+        
+        exp = get_experiment(exp_name)
+        amp = exp.load_compliance()
+        
+        if exp.skip_traces != "None":
+            print("Dropping bad traces", exp_name)
+            bad_trace = exp.skip_traces
+            bad_trace_names = ["Diameter, Station " + str(a) for a in bad_trace]
+            amp.drop(columns=bad_trace_names, inplace=True)
+        
+        
+        index = ["Diameter" in string for string in amp.columns.values]
+        trace_names = amp.columns.values[index]
+        for column in trace_names:
+            compliance = np.append(compliance, (amp[column].values / amp["Pressure (mmHg"].values) * 100 * 100)
+            
+        
+fig.add_trace(go.Box(y = compliance, name = pu_name, marker_color='blue'))
+fig.add_trace(go.Box(y = compliance_gore, name = "GORE", marker_color='black'))
+fig.update_yaxes(title='Compliance (% / 100 mmHg )', type='log')
+fig.update_layout(title='Dynamic Range: 50 - 150 mmHg')
+# fig.update_xaxes(title = "Tested Graft",ticktext=["PU 02", "PU 03", "PU 04", "GORE, 6mm"], tickvals=['PU_02_50_150_RT', 'PU_03_50_150_RT', 'PU_04_50_150_RT', "GORE"] )
+fig.update_xaxes(title = "Dynamic Range: 50-150 mmHg",ticktext=["PU", "GORE"], tickvals=['PU_04_50_150_RT', "GORE"] )
+fig.update_layout(template='plotly_white')
+
+fig.show() 
+    
+       
+        
     
     
     

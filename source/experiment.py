@@ -41,6 +41,9 @@ def get_experiment_names():
 
 
 class Experiment():
+    """
+    Experiment class
+    """
     
     def __init__(self, name, params):
         
