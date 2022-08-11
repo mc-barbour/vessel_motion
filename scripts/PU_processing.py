@@ -414,7 +414,7 @@ for exp_name in gore_exp_names:
     index = ["Diameter" in string for string in amp.columns.values]
     trace_names = amp.columns.values[index]
     for column in trace_names:
-        compliance_gore = np.append(compliance_gore, amp[column].values / amp["Pressure (mmHg"].values * 1000)
+        compliance_gore = np.append(compliance_gore, amp[column].values / amp["Pressure (mmHg"].values * 10000)
 
 fig = go.Figure()
 fig.add_trace(go.Box(y=compliance_gore))
@@ -442,7 +442,7 @@ def average_compliance(exp):
 #%% Plot just the small ranges, compliance
 plot_names = ['PU_02_50_90_RT', 'PU_02_80_120_RT', 'PU_02_110_150_RT', 
               'PU_03_50_90_RT', 'PU_03_80_120_RT', 'PU_03_110_150_RT',
-              'PU_04_50_90_RT', 'PU_04_80_120_RT', 'PU_04_110_150_RT',]
+              'PU_04_50_90_RT', 'PU_04_80_120_RT', 'PU_04_110_150_RT']
 
 
 n_plots = len(plot_names)
@@ -580,7 +580,9 @@ fig.show()
     
     
     
-#%% Plot just the small ranges, compliance - Just for a single graft - PU02
+#%% Plot just the small ranges, compliance - Just for a single graft - PU02 - Temp figure for Le
+
+
 plot_names = ['PU_02_50_90_RT', 'PU_02_80_120_RT', 'PU_02_110_150_RT']
 
 
@@ -630,7 +632,7 @@ fig.show()
         
 
 
-#%% 50 - 150 dynamic range plot
+#%% 50 - 150 dynamic range plot - Just the Gore and one PU gradt - temp figure for Le
 
 plot_names = ['PU_02_50_150_RT', 'PU_03_50_150_RT', 'PU_04_50_150_RT']    
     
@@ -670,7 +672,7 @@ for count, pu_name in enumerate(plot_names):
         
 fig.add_trace(go.Box(y = compliance, name = pu_name, marker_color='blue'))
 fig.add_trace(go.Box(y = compliance_gore, name = "GORE", marker_color='black'))
-fig.update_yaxes(title='Compliance (% / 100 mmHg )', type='log')
+fig.update_yaxes(title='Compliance (% / 100 mmHg )', type='linear')
 fig.update_layout(title='Dynamic Range: 50 - 150 mmHg')
 # fig.update_xaxes(title = "Tested Graft",ticktext=["PU 02", "PU 03", "PU 04", "GORE, 6mm"], tickvals=['PU_02_50_150_RT', 'PU_03_50_150_RT', 'PU_04_50_150_RT', "GORE"] )
 fig.update_xaxes(title = "Dynamic Range: 50-150 mmHg",ticktext=["PU", "GORE"], tickvals=['PU_04_50_150_RT', "GORE"] )
@@ -679,11 +681,92 @@ fig.update_layout(template='plotly_white')
 fig.show() 
     
        
+    
+#%% 50 - 150 dynamic range plot - All PU grafts
+
+plot_names = ['PU_02_50_150_RT', 'PU_03_50_150_RT', 'PU_04_50_150_RT']    
+    
+n_plots = len(plot_names)
+
+colors = ['blue', 'red', 'green', 'black']
+n_colors = len(colors)
+
+fig = go.Figure()
+
+for count, pu_name in enumerate(plot_names):
+    
+    plot_count = count - int(count / n_colors)*n_colors
+    
+    exp_names = [pu_name in string for string in pu_exp_names]
+    exp_names = np.array(pu_exp_names)[exp_names]
+    
+    compliance = np.array([])
+    for exp_name in exp_names:
         
+        
+        exp = get_experiment(exp_name)
+        amp = exp.load_compliance()
+        
+        if exp.skip_traces != "None":
+            print("Dropping bad traces", exp_name)
+            bad_trace = exp.skip_traces
+            bad_trace_names = ["Diameter, Station " + str(a) for a in bad_trace]
+            amp.drop(columns=bad_trace_names, inplace=True)
+        
+        
+        index = ["Diameter" in string for string in amp.columns.values]
+        trace_names = amp.columns.values[index]
+        for column in trace_names:
+            compliance = np.append(compliance, (amp[column].values / amp["Pressure (mmHg"].values) * 100 * 100)
+            
+        
+    fig.add_trace(go.Box(y = compliance, name = pu_name, marker_color=colors[count]))
+fig.add_trace(go.Box(y = compliance_gore, name = "GORE", marker_color='black'))
+fig.update_yaxes(title='Compliance (% / 100 mmHg )', type='linear')
+fig.update_layout(title='Dynamic Range: 50 - 150 mmHg')
+fig.update_xaxes(title = "Tested Graft",ticktext=["PU 02", "PU 03", "PU 04", "GORE, 6mm"], tickvals=['PU_02_50_150_RT', 'PU_03_50_150_RT', 'PU_04_50_150_RT', "GORE"] )
+# fig.update_xaxes(title = "Dynamic Range: 50-150 mmHg",ticktext=["PU", "GORE"], tickvals=['PU_04_50_150_RT', "GORE"] )
+fig.update_layout(template='plotly_white')
+
+fig.show() 
     
+#%% Figure out the bug in the Gore compliance estiamte
+
+gore_exp_names = ['GORE_6mmID_50_150_v2','GORE2_6mmID_50_150_v1']
+
+
+n_stations = 8
+compliance_gore = np.array([])
+for exp_name in gore_exp_names:
+    exp = get_experiment(exp_name)
     
+    # load the diameters
     
+    df = exp.load_diameter()
+    fig = go.Figure()
+
+    for stations in range(n_stations):
+        fig.add_trace(go.Scatter(y=df['station '+str(stations + 1)]))
+    fig.update_layout(title=exp.get_name())
+        
+    fig.show()
     
+
+#%% Now load the amplitudes
+
+for exp_name in gore_exp_names:
+    exp = get_experiment(exp_name)
+    
+    # load the diameters
+    
+    df = exp.load_amplitudes()
+    fig = go.Figure()
+
+    for stations in range(n_stations):
+        fig.add_trace(go.Scatter(y=df['station '+str(stations + 1)]))
+    fig.update_layout(title=exp.get_name())
+        
+    fig.show()
     
     
     

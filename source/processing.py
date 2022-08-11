@@ -160,6 +160,16 @@ def waveform_amplitude_2(data, minimums, maximums):
 
 def compute_compliance(exp, search_window=100, show_plot=True):
     
+    """
+    Returns the ratio of diameter motion over initital diameter:
+        
+        (Ds - Dd)/Dd : s and d are systole and diastole
+    
+    Computes this value at all analysis stations/windows
+    
+    """
+    
+    
     exp.load_pressure()
     pressure = exp.pressure_data[exp.start_image:exp.last_image].values
     df_diameter = exp.load_diameter()
@@ -223,6 +233,15 @@ def compute_compliance(exp, search_window=100, show_plot=True):
 
 
 def compute_compliance_stations(exp, stations, search_window=100,show_plot=True):
+        
+    """
+    Returns the ratio of diameter motion over initital diameter:
+        
+        (Ds - Dd)/Dd : s and d are systole and diastole
+    
+    Computes this value at specified stations
+    
+    """
     
     exp.load_pressure()
     pressure = exp.pressure_data[exp.start_image:exp.last_image].values
@@ -285,28 +304,7 @@ def compute_compliance_stations(exp, stations, search_window=100,show_plot=True)
     fig.update_xaxes(range=[0,time[-1]])
     fig.show()
     
-    
-    
-    # if show_plot:
-    #     dt = 1./ exp.frequency
-    #     time = np.arange(len(df_diameter))*dt
-    #     fig = make_subplots(rows=2, cols=1)
-    #     for n in range(n_stations):
-    #         fig.add_trace(go.Scatter(x=time,y=df_diameter['station '+str(n+1)], name='station ' + str(n+1)), row=1, col=1)
-    #         fig.add_trace(go.Scatter(x=time[peak_vals_all[n]],y=df_diameter['station '+str(n+1)][peak_vals_all[n]],mode='markers', name='station ' + str(n+1), marker_color='red'), row=1, col=1)
-    #         fig.add_trace(go.Scatter(x=time[min_vals_all[n]],y=df_diameter['station '+str(n+1)][min_vals_all[n]],mode='markers', name='station ' + str(n+1), marker_color='blue'), row=1, col=1)
-    #         fig.update_yaxes(title='Diameter (pixels)', row=1, col=1)
 
-
-    #     fig.add_trace(go.Scatter(x=time, y=pressure), row=2, col=1)
-    #     fig.add_trace(go.Scatter(x=time[peak_vals_pressure],y=pressure[peak_vals_pressure], mode='markers'),row=2,col=1)
-    #     fig.add_trace(go.Scatter(x=time[min_vals_pressure],y=pressure[min_vals_pressure], mode='markers', marker_color='green'),row=2,col=1)
-    #     fig.update_yaxes(title='Pressure (mmHg)', row=2, col=1)
-    #     fig.update_xaxes(title='time (s)')
-    #     fig.update_layout(title=exp.get_name())
-
-    #     fig.update_xaxes(range=[0,time[-1]])
-    #     fig.show()
         
     return df_amplitudes
 
