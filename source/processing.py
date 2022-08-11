@@ -107,7 +107,7 @@ def analyze_image_stack_windows(experiment, n_stations=10):
 
 
 def waveform_amplitude(data, minimums, maximums):
-    
+    """ Change in diameter : Ds - Dd """
     amplitudes = []
     n_measurements = len(minimums)-1
     for count in range(n_measurements):
